@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools >= 61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "sondehub-alert"
+version = "0.0.1"
+description = "Sondehub Alert"
+readme = "README.md"
+requires-python = ">=3.12"
+license = {file = "LICENSE"}
+dependencies = [
+    "python-telegram-bot",
+    "geopy"
+]
+
+[project.scripts]
+sondehub-alert = "sondehub_alert.main:main"
+
+[tool.setuptools]
+packages = ["sondehub_alert"]
