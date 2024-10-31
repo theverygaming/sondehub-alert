@@ -51,31 +51,24 @@ inactive_sondes = {}
 inactive_sondes_lock = threading.Lock()
 
 def add_sonde_frame(frame):
+    sonde_id = frame.get_sonde_unique_id()
     with recent_sondes_lock:
-        sonde_id = frame.get_sonde_unique_id()
-        if not sonde_id in recent_sondes:
-            recent_sondes[sonde_id] = []
-        recent_sondes[sonde_id].append(frame)
+        recent_sondes[sonde_id] = frame
+    with inactive_sondes_lock:
+        if sonde_id in inactive_sondes:
+            del inactive_sondes[sonde_id] # well it aint inactive anymore
 
 def _update_inactive_sondes():
-    sort_key = lambda x: x.time_received
     with recent_sondes_lock, inactive_sondes_lock:
-        # sort by most recently received
-        for k in recent_sondes:
-            recent_sondes[k].sort(key=sort_key)
         # check if sondes are past the "inactive" time limit
         keys_to_delete = [] # done because deleting keys inside a dict iteration seems to be a bad idea
         for k in recent_sondes:
-            age_secs = recent_sondes[k][-1].get_age_seconds()
+            age_secs = recent_sondes[k].get_age_seconds()
             if age_secs < config.SONDE_INACTIVE_SECONDS:
                 continue
             # move to inactive
             _logger.info(f"Moving sonde with ID '{k}' to inactive after {age_secs} seconds")
-            if k in inactive_sondes:
-                inactive_sondes[k] += recent_sondes[k]
-                inactive_sondes[k].sort(key=sort_key)
-            else:
-                inactive_sondes[k] = recent_sondes[k]
+            inactive_sondes[k] = recent_sondes[k]
             keys_to_delete.append(k)
         for k in keys_to_delete:
             del recent_sondes[k]
@@ -111,8 +104,7 @@ Tracker link: {frame.tracker_url}
                 case "telegram":
                     telegram.send_message(notif["chatID"], msg)
 
-    for k, sonde in get_inactive_sondes().items():
-        last_frame = sonde[-1]
+    for k, last_frame in get_inactive_sondes().items():
         for notif in config.NOTIFICATIONS:
             distance_m = geopy.distance.distance((last_frame.lat, last_frame.lon), (notif["lat"], notif["lon"])).m
             if notif["radius"] < distance_m:
